@@ -11,5 +11,5 @@
 |
 */
 
-$app->get('{filename}', 'FilesController@show');
-$app->post('{filename}', 'FilesController@store');
+$app->get('{filename:.+}', 'FilesController@show');
+$app->post('{filename:.+}', 'FilesController@store');

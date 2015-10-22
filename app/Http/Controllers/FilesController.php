@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
 use Illuminate\Http\Request;
 
 class FilesController extends Controller
@@ -15,7 +17,23 @@ class FilesController extends Controller
 
     public function show ($filename)
     {
-        return $filename;
+        // Quick fix
+        $filename = '/' . $filename;
+
+        $file = $this->gridfs->findOne($filename);
+
+        if (! $file) abort(404);
+
+        $mime = $file->file['mime'];
+        $stream = $file->getResource();
+
+        header('Content-type: ' . $mime);
+
+        while (! feof($stream)) {
+
+            echo fread($stream, 256);
+
+        }
     }
 
     public function store (Request $request, $filename)

@@ -81,7 +81,20 @@ class FilesController extends Controller
             'date' => new \MongoDate(),
         ]);
 
-        // Return the filename as success
-        return $filename;
+        // Return the success
+        return response()->json(['status' => 'stored', 'filename' => $filename]);
+    }
+
+    public function destroy ($filename) {
+
+        // Format filename
+        $filename = '/' . trim($filename, ' /');
+
+        // Remove the file from gridfs
+        $this->gridfs->remove($filename);
+
+        // Return the success
+        return response()->json(['status' => 'deleted', 'filename' => $filename]);
+
     }
 }

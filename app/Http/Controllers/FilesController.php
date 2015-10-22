@@ -30,7 +30,7 @@ class FilesController extends Controller
         // Get the file from gridfs
         $file = $this->gridfs->findOne($filename);
 
-        if (! $file) abort(404);
+        if (! $file) return response('File not found.', 404);
 
         // Get file's mime and file handler
         $mime = $file->file['mime'];
@@ -49,8 +49,15 @@ class FilesController extends Controller
     public function store ($filename, Request $request)
     {
         // Check if sent data are ok
-        if (! $request->hasFile('file')) return abort(500, 'No file sent.');
-        if (! $request->file('file')->isValid()) return abort(500, 'Upload error.');
+        if (! $request->hasFile('file')) return response()->json([
+            'error' => 500,
+            'message' => 'No file sent.',
+        ], 500);
+
+        if (! $request->file('file')->isValid()) return response()->json([
+            'error' => 500,
+            'message' => 'Upload error.',
+        ], 500);
 
         // Format filename
         $filename = '/' . trim($filename, ' /');
@@ -58,7 +65,10 @@ class FilesController extends Controller
         // Check if filename already exists
         $existing = $this->gridfs->findOne($filename);
 
-        if ($existing) abort(403, "File already exists.");
+        if ($existing) return response()->json([
+            'error' => 403,
+            'message' => 'File already exists.',
+        ], 403);
 
         // Determine the mime type (content type of the request or mime type of
         // the file if not specified)

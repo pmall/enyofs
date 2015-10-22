@@ -15,6 +15,13 @@ class FilesController extends Controller
         $this->gridfs = $gridfs;
     }
 
+    public function index ()
+    {
+        $files = $this->gridfs->find();
+
+        return view('index', ['files' => $files]);
+    }
+
     public function show ($filename)
     {
         // Quick fix

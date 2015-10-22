@@ -24,15 +24,19 @@ class FilesController extends Controller
 
     public function show ($filename)
     {
+        // Format filename
         $filename = '/' . trim($filename, ' /');
 
+        // Get the file from gridfs
         $file = $this->gridfs->findOne($filename);
 
         if (! $file) abort(404);
 
+        // Get file's mime and file handler
         $mime = $file->file['mime'];
         $stream = $file->getResource();
 
+        // Render the file
         header('Content-type: ' . $mime);
 
         while (! feof($stream)) {

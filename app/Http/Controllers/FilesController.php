@@ -2,84 +2,76 @@
 
 namespace App\Http\Controllers;
 
-use Symfony\Component\HttpFoundation\StreamedResponse;
-
 use Illuminate\Http\Request;
+use Illuminate\Contracts\Filesystem\Factory as Filesystem;
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
+
+use App\FilesCollection;
 
 class FilesController extends Controller
 {
-    private $gridfs;
+    private $disk;
 
-    public function __construct(\MongoGridFS $gridfs)
+    public function __construct(Filesystem $filesystem)
     {
-        $this->gridfs = $gridfs;
+        $this->disk = $filesystem->disk(config('filesystems.default'));
     }
 
-    public function index ()
+    public function show ($filename = '')
     {
-        $files = $this->gridfs->find();
+        // If it contains files or directories it is a directory
+        $directories = $this->disk->directories($filename);
+        $files = $this->disk->files($filename);
 
-        return view('index', ['files' => $files]);
-    }
+        if (count($directories) > 0 or count($files) > 0)
+            return view('index', ['directories' => $directories, 'files' => $files]);
 
-    public function show ($filename)
-    {
-        // Format filename
-        $filename = '/' . trim($filename, ' /');
+        // Get the mimetype
+        $mimetype = $this->disk->mimeType($filename);
 
-        // Get the file from gridfs
-        $file = $this->gridfs->findOne($filename);
-
-        if (! $file) return response('File not found.', 404);
-
-        // Get file's mime and file handler
-        $mime = $file->file['mime'];
-        $stream = $file->getResource();
+        // Get the content of the file
+        $stream = $this->disk->readStream($filename);
 
         // Render the file
-        header('Content-type: ' . $mime);
+        header('Content-type: ' . $mimetype);
 
-        while (! feof($stream)) {
+        while (! feof($stream)) echo fread($stream, 8);
 
-            echo fread($stream, 256);
-
-        }
+        fclose($stream);
     }
 
     public function store ($filename, Request $request)
     {
-        // Check if sent data are ok
+        // Check if a file is sent
         if (! $request->hasFile('file')) return response()->json([
             'error' => 500,
             'message' => 'No file sent.',
         ], 500);
 
+        // Get the file
+        $file = $request->file('file');
+
+        // Check if the upload is ok
         if (! $request->file('file')->isValid()) return response()->json([
             'error' => 500,
             'message' => 'Upload error.',
         ], 500);
 
-        // Format filename
-        $filename = '/' . trim($filename, ' /');
-
         // Check if filename already exists
-        $existing = $this->gridfs->findOne($filename);
+        $existing = $this->disk->exists($filename);
 
         if ($existing) return response()->json([
             'error' => 403,
             'message' => 'File already exists.',
         ], 403);
 
-        // Determine the mime type (content type of the request or mime type of
-        // the file if not specified)
-        $mime = $request->get('mime', $request->file('file')->getMimeType());
+        // Get the file mimetype if no mimetype specified
+        $mimetype = $request->get('mimetype', $file->getMimeType());
 
         // Store the file in gridfs
-        $this->gridfs->storeUpload('file', [
-            'filename' => $filename,
-            'mime' => $mime,
-            'date' => new \MongoDate(),
-        ]);
+        $stream = fopen($file->getRealPath(), 'r+');
+        $this->disk->writeStream($filename, $stream, ['mimetype' => $mimetype]);
+        if (is_resource($stream)) fclose($stream);
 
         // Return the success
         return response()->json(['status' => 'stored', 'filename' => $filename]);
@@ -87,11 +79,8 @@ class FilesController extends Controller
 
     public function destroy ($filename) {
 
-        // Format filename
-        $filename = '/' . trim($filename, ' /');
-
         // Remove the file from gridfs
-        $this->gridfs->remove($filename);
+        $this->disk->delete($filename);
 
         // Return the success
         return response()->json(['status' => 'deleted', 'filename' => $filename]);

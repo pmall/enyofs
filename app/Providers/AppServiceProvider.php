@@ -2,7 +2,13 @@
 
 namespace App\Providers;
 
+use MongoClient;
+
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Contracts\Filesystem\Factory as FilesystemManager;
+
+use League\Flysystem\Filesystem;
+use League\Flysystem\GridFS\GridFSAdapter;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -13,19 +19,29 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        $this->app->singleton(\MongoGridFS::class, function () {
+        //
+    }
 
-            $fs_host = env('FS_HOST', 'mongodb://localhost');
-            $fs_port = env('FS_PORT', '27017');
-            $fs_database = env('FS_DATABASE');
+    public function boot()
+    {
+        $this->app->call([$this, 'registerGridfsFilesystem']);
+    }
 
-            if (! $fs_database) abort(500, 'Database name not set.');
+    public function registerGridfsFilesystem(FilesystemManager $filesystem)
+    {
+        $filesystem->extend('gridfs', function ($app, $config) {
 
-            $mongo = new \MongoClient(implode(':', [$fs_host, $fs_port]));
+            $fs_host = $config['host'];
+            $fs_port = $config['port'];
+            $fs_database = $config['database'];
+
+            $mongo = new MongoClient('mongodb://' . $fs_host . ':' . $fs_port);
 
             $db = $mongo->selectDB($fs_database);
 
-            return $db->getGridFS();
+            $gridfs = $db->getGridFS();
+
+            return new Filesystem(new GridFSAdapter($gridfs));
 
         });
     }

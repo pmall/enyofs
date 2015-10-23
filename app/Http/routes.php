@@ -11,7 +11,7 @@
 |
 */
 
-$app->get('/', 'FilesController@index');
+$app->get('/', 'FilesController@show');
 $app->get('{filename:.+}', 'FilesController@show');
 $app->post('{filename:.+}', 'FilesController@store');
 $app->delete('{filename:.+}', 'FilesController@destroy');
